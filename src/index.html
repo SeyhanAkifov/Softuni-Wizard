@@ -1,22 +1,281 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
     <link rel="stylesheet" href="style.css">
     <title>SoftUni Wizard</title>
 </head>
+
 <body>
     <div class="game-section">
-        <div class="score"></div>
+        <div class="game-score">
+            <span class='points'>0</span> pts</div>
         <div class="game-start">Press to Play</div>
         <div class="game-area">
 
         </div>
-        <div class="game-over"></div>
+        <div class="game-over hide">Game Over</div>
         <div class="live"></div>
     </div>
 
 
-    <script src=""></script>
+    <script>
+
+        const gameStart = document.querySelector('.game-start');
+        const gameArea = document.querySelector('.game-area');
+        const gameOver = document.querySelector('.game-over');
+        const gameScore = document.querySelector('.game-score');
+        const gamePoints = gameScore.querySelector('.points');
+        gameStart.addEventListener('click', onGameStart);
+        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('keyup', onKeyUp);
+
+
+        let keys = {};
+        let player = {
+            x: 150,
+            y: 300,
+            width: 0,
+            height: 0,
+            points: 0,
+            lastFiredBall: 0,
+
+        };
+        let game = {
+            speed: 4,
+            movingMultiplier: 4,
+            fireInterval: 1000,
+            cloudSpawnInterval: 2000,
+            lastCloudSpawn: 0,
+            lastBugSpawn: 0,
+            bugSpawnInterval: 1000,
+            isActivePlaying: true,
+        };
+
+
+
+
+        function onGameStart() {
+
+            gameStart.classList.add('hide');
+            alert('game started!')
+
+
+            const wizard = document.createElement('div');
+            wizard.classList.add('wizard');
+            wizard.style.top = player.y + 'px';
+            wizard.style.left = player.x + 'px';
+            player.width = wizard.offsetWidth;
+            player.height = wizard.offsetHeight;
+            gameArea.appendChild(wizard);
+
+            window.requestAnimationFrame(gameAction);
+        }
+
+
+        function gameAction(timestamp) {
+
+            const wizard = document.querySelector('.wizard')
+
+            //Add Bug
+
+            if (timestamp - game.lastBugSpawn > game.bugSpawnInterval + 2000 + Math.random()) {
+                let bug = document.createElement('div');
+                bug.classList.add('bug');
+                bug.x = gameArea.offsetWidth - 60;
+                bug.style.left = bug.x + 'px';
+                bug.style.top = (gameArea.offsetHeight - 60) * Math.random() + '100px'
+
+                gameArea.appendChild(bug)
+
+
+                game.lastBugSpawn = timestamp;
+            }
+
+            //modify bugs
+            let bugs = document.querySelectorAll('.bug')
+
+            bugs.forEach(bug => {
+                bug.x -= game.speed;
+                bug.style.left = bug.x + 'px';
+
+
+                if (bug.x + bug.offsetWidth <= 0) {
+                    bug.parentElement.removeChild(bug)
+                }
+
+            })
+
+
+            if (timestamp - game.lastCloudSpawn > game.cloudSpawnInterval + 2000 + Math.random()) {
+
+
+
+                let cloud = document.createElement('div');
+                cloud.classList.add('cloud');
+                cloud.x = gameArea.offsetWidth - 200;
+                cloud.style.left = cloud.x + 'px';
+                cloud.style.top = (gameArea.offsetHeight - 200) * Math.random() + '100px'
+
+                gameArea.appendChild(cloud)
+
+
+                game.lastCloudSpawn = timestamp;
+
+
+
+            }
+
+            let clouds = document.querySelectorAll('.cloud')
+
+            clouds.forEach(cloud => {
+                cloud.x -= game.speed;
+                cloud.style.left = cloud.x + 'px';
+
+
+                if (cloud.x + cloud.offsetWidth <= 0) {
+                    cloud.parentElement.removeChild(cloud)
+                }
+
+            })
+
+
+
+            let isBottom = (player.y + player.height + 100) < gameArea.offsetHeight;
+
+            let fireBalls = document.querySelectorAll('.fire-ball')
+
+            fireBalls.forEach(fireBall => {
+                fireBall.x += game.speed + 6;
+                fireBall.style.left = fireBall.x + 'px'
+
+
+                if (fireBall.x + fireBall.offsetWidth > gameArea.offsetWidth) {
+                    fireBall.parentElement.removeChild(fireBall)
+                }
+            })
+
+            if (isBottom) {
+                player.y += 1
+            }
+
+
+            gamePoints.textContent = player.points
+
+
+            if (keys.ArrowUp && player.y > 0) {
+                player.y -= game.speed * game.movingMultiplier;
+            }
+            if (keys.ArrowDown && isBottom) {
+                player.y += game.speed * game.movingMultiplier;
+            }
+            if (keys.ArrowLeft && player.x > 0) {
+                player.x -= game.speed * game.movingMultiplier;
+            }
+            if (keys.ArrowRight && player.x + player.width < gameArea.offsetWidth - 50) {
+                player.x += game.speed * game.movingMultiplier;
+            }
+            if (keys.Space && timestamp - player.lastFiredBall > game.fireInterval) {
+                wizard.classList.add('wizard-fire');
+
+                addFireBall(player);
+                player.lastFiredBall = timestamp;
+
+
+
+            }
+            else {
+                wizard.classList.remove('wizard-fire')
+
+            }
+
+            //Colision detctetion
+
+
+
+
+
+
+            wizard.style.top = player.y + "px";
+            wizard.style.left = player.x + "px";
+
+            player.points++;
+
+            fireBalls.forEach(fireBall => {
+
+                bugs.forEach(bug => {
+
+                    if (isColision(fireBall, bug) == false) {
+                        fireBall.parentElement.removeChild(fireBall);
+                        bug.parentElement.removeChild(bug)
+                    }
+                });
+
+            });
+
+            bugs.forEach(bug => {
+
+                if (isColision(wizard, bug) == false) {
+                    gameOvers();
+                }
+            });
+
+
+            if (game.isActivePlaying) {
+                window.requestAnimationFrame(gameAction);
+            }
+
+
+
+
+        }
+
+        function isColision(firstObject, secondObject) {
+            let firstRect = firstObject.getBoundingClientRect();
+            let secondRect = secondObject.getBoundingClientRect();
+
+            return ((firstRect.top > secondRect.bottom ||
+                firstRect.bottom < secondRect.top ||
+                firstRect.right < secondRect.left ||
+                firstRect.left > secondRect.right))
+
+
+        }
+
+
+        function gameOvers() {
+            game.isActivePlaying = false;
+            gameOver.classList.remove('hide')
+        }
+
+
+        function addFireBall(player) {
+            let fireBall = document.createElement('div');
+
+            fireBall.classList.add('fire-ball');
+            fireBall.x = player.x + 80 + player.width
+            fireBall.style.top = (player.y + 30 + player.height / 3) + 'px';
+
+            fireBall.style.left = (fireBall.x + player.width) + 'px';
+
+
+            gameArea.appendChild(fireBall);
+
+        }
+        function onKeyDown(e) {
+
+            //e.preventDefault();
+            keys[e.code] = true;
+        }
+        function onKeyUp(e) {
+            //e.preventDefault();
+            keys[e.code] = false;
+        }
+
+
+
+    </script>
 </body>
+
 </html>
